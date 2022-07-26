@@ -1,0 +1,15 @@
+{
+  "name": "google-font-plus",
+  "version": "0.0.1",
+  "main": "index.js",
+  "scripts": {},
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node-fetch": "^2.6.2",
+    "ts-node": "^10.9.1",
+    "vercel": "^27.2.0"
+  },
+  "dependencies": {
+    "node-fetch": "^2"
+  }
+}
