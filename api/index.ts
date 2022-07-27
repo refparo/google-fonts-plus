@@ -103,9 +103,14 @@ export const modifyCSS = (fontFaces: FontFace[], families: Family[]) =>
 export default async (request: VercelRequest, response: VercelResponse) => {
   const url = new URL(request.url!, 'https://fonts.googleapis.com/')
   url.pathname = 'css2'
-  const families = request.query['family'] as string[]
+  let families = request.query['family']
+  if (typeof families == 'undefined') {
+    response.setHeader('Content-Type', 'text/plain; charset=utf-8')
+    response.status(400).send('400 Bad Request: Missing font family')
+    return
+  }
+  if (typeof families == 'string') families = [families]
   const parsedFamilies = families.map(parseFamily)
-  console.log(parsedFamilies)
   url.searchParams.delete('family')
   parsedFamilies.forEach(f => url.searchParams.append('family', f.googleFamily))
   const result = await fetch(url.toString(), {
@@ -113,9 +118,14 @@ export default async (request: VercelRequest, response: VercelResponse) => {
       'user-agent': request.headers['user-agent']
     }
   })
+  if (result.status != 200) {
+    response.setHeader('Content-Type', 'text/html; charset=utf-8')
+    response.status(result.status).send(await result.text())
+    return
+  }
   const content =
     generateCSS(modifyCSS(parseCSS(await result.text()), parsedFamilies))
   response.setHeader('Cache-Control', 'private, max-age=86400')
   response.setHeader('Content-Type', 'text/css; charset=utf-8')
-  response.status(200).send(content);
+  response.status(200).send(content)
 };
