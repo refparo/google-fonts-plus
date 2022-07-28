@@ -101,6 +101,7 @@ export const modifyCSS = (fontFaces: FontFace[], families: Family[]) =>
   )(), fontFaces))
 
 export default async (request: VercelRequest, response: VercelResponse) => {
+  response.setHeader('Access-Control-Allow-Origin', '*')
   const url = new URL(request.url!, 'https://fonts.googleapis.com/')
   url.pathname = 'css2'
   let families = request.query['family']
