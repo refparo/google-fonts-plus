@@ -126,7 +126,7 @@ export default async (request: VercelRequest, response: VercelResponse) => {
   }
   const content =
     generateCSS(modifyCSS(parseCSS(await result.text()), parsedFamilies))
-  response.setHeader('Cache-Control', 'private, max-age=86400')
+  response.setHeader('Cache-Control', 'max-age=86400, s-maxage=1, stale-while-revalidate')
   response.setHeader('Content-Type', 'text/css; charset=utf-8')
   response.status(200).send(content)
 };
