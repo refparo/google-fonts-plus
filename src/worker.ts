@@ -1,7 +1,3 @@
-import type { VercelRequest, VercelResponse } from '@vercel/node'
-
-import fetch from 'node-fetch'
-
 export type Family = {
   family: string,
   axis?: string,
@@ -100,33 +96,53 @@ export const modifyCSS = (fontFaces: FontFace[], families: Family[]) =>
     }
   )(), fontFaces))
 
-export default async (request: VercelRequest, response: VercelResponse) => {
-  response.setHeader('Access-Control-Allow-Origin', '*')
-  const url = new URL(request.url!, 'https://fonts.googleapis.com/')
-  url.pathname = 'css2'
-  let families = request.query['family']
-  if (typeof families == 'undefined') {
-    response.setHeader('Content-Type', 'text/plain; charset=utf-8')
-    response.status(400).send('400 Bad Request: Missing font family')
-    return
-  }
-  if (typeof families == 'string') families = [families]
-  const parsedFamilies = families.map(parseFamily)
-  url.searchParams.delete('family')
-  parsedFamilies.forEach(f => url.searchParams.append('family', f.googleFamily))
-  const result = await fetch(url.toString(), {
-    headers: <Record<string, string>> {
-      'user-agent': request.headers['user-agent']
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*'
+}
+
+export default {
+  async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
+    const url = new URL(request.url)
+
+    let families = url.searchParams.getAll('family')
+    if (families.length == 0) return new Response(
+      "400 Bad Request: Missing font family",
+      {
+        status: 400,
+        headers: {
+          ...corsHeaders,
+          'Content-Type': 'text/plain; charset=utf-8'
+        }
+      }
+    )
+
+    const googleURL = new URL(url)
+    googleURL.protocol = 'https'
+    googleURL.host = 'fonts.googleapis.com'
+    googleURL.port = ''
+    googleURL.pathname = 'css2'
+    const parsedFamilies = families.map(parseFamily)
+    googleURL.searchParams.delete('family')
+    parsedFamilies.forEach(f => googleURL.searchParams.append('family', f.googleFamily))
+  
+    const googleResp = await fetch(googleURL, {
+      headers: {
+        'user-agent': request.headers.get('user-agent')!
+      }
+    })
+    if (googleResp.status != 200) {
+      return googleResp
     }
-  })
-  if (result.status != 200) {
-    response.setHeader('Content-Type', 'text/html; charset=utf-8')
-    response.status(result.status).send(await result.text())
-    return
+
+    return new Response(
+      generateCSS(modifyCSS(parseCSS(await googleResp.text()), parsedFamilies)),
+      {
+        headers: {
+          ...corsHeaders,
+          'Content-Type': 'text/css; charset=utf-8',
+          'Cache-Control': 'max-age=86400, s-maxage=1, stale-while-revalidate'
+        }
+      }
+    )
   }
-  const content =
-    generateCSS(modifyCSS(parseCSS(await result.text()), parsedFamilies))
-  response.setHeader('Cache-Control', 'max-age=86400, s-maxage=1, stale-while-revalidate')
-  response.setHeader('Content-Type', 'text/css; charset=utf-8')
-  response.status(200).send(content)
-};
+}
